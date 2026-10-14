@@ -7744,6 +7744,17 @@ class TestMixedAdapterBatches:
         inputs = {"X": torch.arange(90).view(-1, 10).to(self.torch_device)}
         self.run_checks(peft_model, inputs)
 
+    def test_mixed_adapter_batches_modules_to_save_on_one_adapter(self):
+        # Only adapter0 has a copy of lin1, so the rows for adapter1 must go through the original lin1
+        config0 = LoraConfig(target_modules=["lin0"], modules_to_save=["lin1"], init_lora_weights=False)
+        config1 = LoraConfig(target_modules=["lin0"], init_lora_weights=False)
+        peft_model = self.get_mlp_peft(config0, config1)
+        # make adapter0's copy of lin1 differ from the original lin1
+        with torch.no_grad():
+            peft_model.base_model.model.lin1.modules_to_save["adapter0"].bias[0].add_(0.5)
+        inputs = {"X": torch.arange(90).view(-1, 10).to(self.torch_device)}
+        self.run_checks(peft_model, inputs)
+
     @pytest.mark.parametrize(
         "test_name, config0, config1",
         [
