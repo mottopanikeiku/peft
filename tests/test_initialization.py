@@ -3502,6 +3502,30 @@ class TestLoadAdapterOfflineMode:
             base_model = AutoModelForCausalLM.from_pretrained(self.base_model, cache_dir=tmp_path)
             PeftModel.from_pretrained(base_model, self.peft_model_id, cache_dir=tmp_path)
 
+    @pytest.mark.parametrize("subfolder", [None, "subfolder"])
+    @pytest.mark.parametrize("safe_serialization", [True, False])
+    def test_load_cached_adapter_offline_subfolder(self, tmp_path, subfolder, safe_serialization):
+        # See #3995, in offline mode the subfolder was added twice to the path of the adapter weights
+        torch.manual_seed(0)
+        model = AutoModelForCausalLM.from_pretrained(self.base_model)
+        model = get_peft_model(model, LoraConfig(init_lora_weights=False)).eval()
+        inputs = torch.arange(10).view(1, -1)
+        with torch.no_grad():
+            expected = model(inputs).logits
+
+        # store the adapter like a snapshot in the Hub cache, so that it can be loaded without network access
+        model_id, revision = "peft-internal-testing/offline-adapter", "a" * 40
+        snapshot_dir = tmp_path / "models--peft-internal-testing--offline-adapter" / "snapshots" / revision
+        model.save_pretrained(snapshot_dir / (subfolder or ""), safe_serialization=safe_serialization)
+
+        base_model = AutoModelForCausalLM.from_pretrained(self.base_model)
+        with self.hub_offline_ctx():
+            loaded = PeftModel.from_pretrained(
+                base_model, model_id, cache_dir=tmp_path, revision=revision, subfolder=subfolder
+            ).eval()
+        with torch.no_grad():
+            torch.testing.assert_close(loaded(inputs).logits, expected)
+
 
 class TestCustomModelConfigWarning:
     # Check potential warnings when the user provided base_model_name_or_path is overridden by PEFT. See #2001 for
