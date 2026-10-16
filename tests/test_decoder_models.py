@@ -719,6 +719,20 @@ class TestDecoderModels(PeftCommonTester):
         config_kwargs = set_init_weights_false(config_cls, config_kwargs)
         self._test_mixed_adapter_batches(model_id, config_cls, config_kwargs.copy())
 
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+    @pytest.mark.parametrize("variant", ["road_1", "road_2", "road_4"])
+    def test_road_mixed_adapter_batches_dtype(self, dtype, variant):
+        # See #3997, the float32 RoAd output was written into the float16/bfloat16 base output without casting it
+        config_kwargs = {
+            "task_type": "CAUSAL_LM",
+            "variant": variant,
+            "group_size": 2,
+            "init_weights": False,
+        }
+        self._test_mixed_adapter_batches(
+            "peft-internal-testing/tiny-random-OPTForCausalLM", RoadConfig, config_kwargs, dtype=dtype
+        )
+
     @pytest.mark.parametrize("model_id", PEFT_DECODER_MODELS_TO_TEST)
     @pytest.mark.parametrize("config_cls,config_kwargs", ALL_CONFIGS)
     def test_generate_with_mixed_adapter_batches(self, model_id, config_cls, config_kwargs):

@@ -221,7 +221,7 @@ class Linear(nn.Module, RoadLayer):
                 self.road_theta[active_adapter],
                 self.road_alpha[active_adapter],
                 sub_batch,
-            )
+            ).to(result.dtype)
 
         return result
 

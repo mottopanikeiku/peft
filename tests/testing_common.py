@@ -934,7 +934,7 @@ class PeftCommonTester:
                 # serializing with safetensors works
                 save_file(model_unloaded.state_dict(), os.path.join(tmp_dirname, "model.safetensors"))
 
-    def _test_mixed_adapter_batches(self, model_id, config_cls, config_kwargs):
+    def _test_mixed_adapter_batches(self, model_id, config_cls, config_kwargs, dtype=torch.float32):
         # Test for mixing different adapters in a single batch by passing the adapter_names argument
         if config_cls not in (LoraConfig, RoadConfig):
             pytest.skip(f"Mixed adapter batches not supported for {config_cls}")
@@ -946,7 +946,7 @@ class PeftCommonTester:
 
         torch.manual_seed(0)
         with hub_online_once(model_id):
-            model = self.transformers_class.from_pretrained(model_id)
+            model = self.transformers_class.from_pretrained(model_id).to(dtype)
             model = get_peft_model(model, config, adapter_name="adapter0").eval()
             model.add_adapter("adapter1", config)
             model = model.to(self.torch_device).eval()
